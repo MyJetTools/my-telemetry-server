@@ -17,6 +17,7 @@ mod permanent_users;
 mod process_id_user_id_links;
 mod scripts;
 mod settings;
+mod storage_by_hour;
 mod timers;
 mod to_write_queue;
 
@@ -92,4 +93,10 @@ async fn main() {
 
     grpc_server::start(&app, grpc_port);
     app.app_states.wait_until_shutdown().await;
+
+    // The storage holds the last window's worth of metrics in memory on purpose. On a
+    // clean shutdown there is no reason to lose it.
+    println!("Shutting down. Flushing the metrics window to disk...");
+    app.repo.flush_all().await;
+    println!("Metrics window is flushed");
 }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use rust_extensions::MyTimerTick;
+use rust_extensions::{MyTimerTick, RepeatTimerIteration};
 
 use crate::app_ctx::AppContext;
 
@@ -16,7 +16,7 @@ impl SaveStatisticsTimer {
 
 #[async_trait::async_trait]
 impl MyTimerTick for SaveStatisticsTimer {
-    async fn tick(&self) {
+    async fn tick(&self) -> RepeatTimerIteration {
         let (app_data_metrics, app_hour_metrics) = {
             let mut metrics_access = self.app.cache.lock().await;
 
@@ -34,5 +34,7 @@ impl MyTimerTick for SaveStatisticsTimer {
         if let Some(app_hour_metrics) = app_hour_metrics {
             crate::scripts::write_hour_statistics_to_db(&self.app, app_hour_metrics).await;
         }
+
+        RepeatTimerIteration::WithInterval
     }
 }

@@ -34,7 +34,7 @@ impl TelemetryWriter for GrpcService {
         .await
         .unwrap();
 
-        if let Some(events) = events {
+        if events.len() > 0 {
             crate::flows::upload_events(&self.app, events).await;
         }
 

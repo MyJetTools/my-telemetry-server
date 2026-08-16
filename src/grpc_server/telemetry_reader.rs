@@ -16,7 +16,11 @@ impl TelemetryReader for GrpcService {
         // let request = request.into_inner();
         let response = crate::flows::get_available_hours_ago(&self.app).await;
 
-        my_grpc_extensions::grpc_server::send_vec_to_stream(response.into_iter(), |dto| dto).await
+        my_grpc_extensions::grpc_server_streams::send_from_iterator_with_transformation(
+            response.into_iter(),
+            |dto| dto,
+        )
+        .await
     }
 
     generate_server_stream!(stream_name:"GetAppsStream", item_name:"ServiceGrpcModel");
@@ -29,7 +33,11 @@ impl TelemetryReader for GrpcService {
         let overview: Vec<ServiceGrpcModel> =
             crate::flows::get_hour_app_statistics(&self.app, request.hour_key.into()).await;
 
-        my_grpc_extensions::grpc_server::send_vec_to_stream(overview.into_iter(), |dto| dto).await
+        my_grpc_extensions::grpc_server_streams::send_from_iterator_with_transformation(
+            overview.into_iter(),
+            |dto| dto,
+        )
+        .await
     }
 
     generate_server_stream!(stream_name:"GetAppActionsStream", item_name:"AppActionGrpcModel");
@@ -47,7 +55,11 @@ impl TelemetryReader for GrpcService {
         )
         .await;
 
-        my_grpc_extensions::grpc_server::send_vec_to_stream(result.into_iter(), |dto| dto).await
+        my_grpc_extensions::grpc_server_streams::send_from_iterator_with_transformation(
+            result.into_iter(),
+            |dto| dto,
+        )
+        .await
     }
 
     generate_server_stream!(stream_name:"GetAppEventsByActionStream", item_name:"AppDataGrpcModel");
@@ -85,8 +97,11 @@ impl TelemetryReader for GrpcService {
             )
             .await;
 
-        my_grpc_extensions::grpc_server::send_vec_to_stream(dto_data.into_iter(), |dto| dto.into())
-            .await
+        my_grpc_extensions::grpc_server_streams::send_from_iterator_with_transformation(
+            dto_data.into_iter(),
+            |dto| dto.into(),
+        )
+        .await
     }
 
     generate_server_stream!(stream_name:"GetByProcessIdStream", item_name:"MetricEventGrpcModel");
@@ -103,8 +118,11 @@ impl TelemetryReader for GrpcService {
             .get_by_process_id(request.hour_key.into(), request.process_id)
             .await;
 
-        my_grpc_extensions::grpc_server::send_vec_to_stream(dto_data.into_iter(), |dto| dto.into())
-            .await
+        my_grpc_extensions::grpc_server_streams::send_from_iterator_with_transformation(
+            dto_data.into_iter(),
+            |dto| dto.into(),
+        )
+        .await
     }
 
     async fn get_tech_metrics(
@@ -117,6 +135,9 @@ impl TelemetryReader for GrpcService {
                 .to_write_queue
                 .get_queue_and_capacity_and_by_process_capacity()
                 .await;
+
+            let storage_window_size = self.app.repo.window_len().await;
+
             let cache_read_access = self.app.cache.lock().await;
 
             let app_data_size = cache_read_access
@@ -142,6 +163,7 @@ impl TelemetryReader for GrpcService {
                 app_data_size: app_data_size.0 as u64,
                 app_data_capacity: app_data_size.1 as u64,
                 user_id_links_capacity: user_id_links_capacity as u64,
+                storage_window_size: storage_window_size as u64,
             }
         };
 
@@ -174,13 +196,14 @@ impl TelemetryReader for GrpcService {
     ) -> Result<tonic::Response<Self::GetPermanentUsersStream>, tonic::Status> {
         let dto_data = crate::flows::get_permanent_users(&self.app).await;
 
-        my_grpc_extensions::grpc_server::send_vec_to_stream(dto_data.into_iter(), |model| {
-            PermanentUserGrpcModel {
+        my_grpc_extensions::grpc_server_streams::send_from_iterator_with_transformation(
+            dto_data.into_iter(),
+            |model| PermanentUserGrpcModel {
                 user_id: model.user,
                 added: model.created,
                 status: model.status,
-            }
-        })
+            },
+        )
         .await
     }
 

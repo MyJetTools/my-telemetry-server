@@ -1,38 +1,57 @@
-use my_sqlite::*;
 use rust_extensions::date_time::{HourKey, IntervalKey};
+use turso::{params::Params, Database, Value};
 
-use super::*;
+use crate::db::turso_ext::*;
 
-const TABLE_NAME: &str = "hour_statistics";
+use super::dto::*;
+
 pub struct HourStatisticsRepo {
-    pub sqlite: SqlLiteConnection,
+    db: Database,
 }
+
 impl HourStatisticsRepo {
     pub async fn new(file_name: String) -> Self {
         println!("Creating HourStatisticsRepo with file_name: {}", file_name);
         Self {
-            sqlite: SqlLiteConnectionBuilder::new(file_name)
-                .create_table_if_no_exists::<HourStatisticsDto>(TABLE_NAME)
-                .build()
-                .await
-                .unwrap(),
+            db: open_db(file_name.as_str(), &DDL).await,
         }
     }
+
     pub async fn update(&self, dto_s: &[HourStatisticsDto]) {
-        self.sqlite
-            .bulk_insert_or_update(dto_s, TABLE_NAME)
-            .await
-            .unwrap();
+        if dto_s.is_empty() {
+            return;
+        }
+
+        let connection = self.db.connect().unwrap();
+
+        execute_batch(
+            &connection,
+            INSERT_SQL,
+            dto_s.iter().map(|itm| itm.to_insert_params()),
+        )
+        .await
+        .unwrap();
     }
 
     pub async fn get(&self, hour: IntervalKey<HourKey>) -> Vec<HourStatisticsDto> {
-        let where_model = WhereByHourKey {
-            hour_key: hour.to_i64(),
-        };
+        let sql = format!("select {} from {} where hour_key = ?", COLUMNS, TABLE_NAME);
 
-        self.sqlite
-            .query_rows(TABLE_NAME, Some(&where_model))
+        let connection = self.db.connect().unwrap();
+
+        let mut rows = connection
+            .query(
+                sql.as_str(),
+                Params::Positional(vec![Value::Integer(hour.to_i64())]),
+            )
             .await
-            .unwrap()
+            .unwrap();
+
+        let mut result = Vec::new();
+
+        while let Some(row) = rows.next().await.unwrap() {
+            result.push(HourStatisticsDto::from_row(&row));
+        }
+
+        result
     }
 }

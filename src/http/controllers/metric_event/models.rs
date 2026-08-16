@@ -8,7 +8,7 @@ use crate::ignore_events::IgnoreEvents;
 #[derive(MyHttpInput)]
 pub struct NewMetricsEvent {
     #[http_body_raw(description = "Metrics")]
-    pub body: my_http_server::types::RawDataTyped<Vec<NewMetric>>,
+    pub body: my_http_server::RawDataTyped<Vec<NewMetric>>,
 }
 
 impl NewMetricsEvent {

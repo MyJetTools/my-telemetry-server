@@ -1,80 +1,38 @@
-use my_http_server::macros::{MyHttpInput, MyHttpObjectStructure};
-use serde::{Deserialize, Serialize};
+// The wire models themselves live in `rest-api-shared` and are used verbatim by
+// the wasm UI in `ui/`, so the request the UI builds and the request this server
+// parses can not drift apart. Only the mapping from the storage DTOs - which the
+// UI never sees - stays here.
+pub use rest_api_shared::*;
 
 use crate::db::*;
 
-#[derive(Debug, MyHttpInput)]
-pub struct GetServicesHttpInput {
-    #[http_query(description = "Hour key")]
-    pub hour_key: i64,
+impl From<&EventTagDto> for TagHttpModel {
+    fn from(value: &EventTagDto) -> Self {
+        Self {
+            key: value.key.clone(),
+            value: value.value.clone(),
+        }
+    }
 }
 
-#[derive(Deserialize, Serialize, MyHttpObjectStructure)]
-pub struct GetServicesResponse {
-    pub services: Vec<ServiceHttpModel>,
-}
+/// The client id is lifted out of the tags on the way in (it gets its own column
+/// so it can be filtered on), so it has to be put back on the way out - otherwise
+/// the UI would show every tag of an event except the one identifying the client.
+/// This mirrors what `mappers::metric_tags::to_tag_grpc_model` does for gRPC.
+fn map_tags(tags: Option<Vec<EventTagDto>>, client_id: Option<String>) -> Vec<TagHttpModel> {
+    let mut result: Vec<TagHttpModel> = match tags {
+        Some(tags) => tags.iter().map(|tag| tag.into()).collect(),
+        None => Vec::new(),
+    };
 
-#[derive(Deserialize, Serialize, MyHttpObjectStructure)]
-pub struct ServiceHttpModel {
-    pub id: String,
-    pub avg: i64,
-    pub amount: i64,
-}
-/////////
+    if let Some(client_id) = client_id {
+        result.push(TagHttpModel {
+            key: crate::mappers::CLIENT_ID_TAG.to_string(),
+            value: client_id,
+        });
+    }
 
-#[derive(Debug, MyHttpInput)]
-pub struct GetServiceMetricsOverview {
-    #[http_query(description = "Id of service")]
-    pub id: String,
-
-    #[http_query(description = "Hour key")]
-    pub hour_key: i64,
-}
-
-#[derive(Deserialize, Serialize, MyHttpObjectStructure)]
-pub struct GetServiceOverviewResponse {
-    pub data: Vec<ServiceOverviewContract>,
-}
-#[derive(Deserialize, Serialize, MyHttpObjectStructure)]
-pub struct ServiceOverviewContract {
-    pub data: String,
-    pub min: i64,
-    pub max: i64,
-    pub avg: i64,
-    pub success: i64,
-    pub error: i64,
-    pub total: i64,
-}
-
-////////////
-
-#[derive(Debug, MyHttpInput)]
-pub struct GetByServiceDataRequest {
-    #[http_query(description = "Id of service")]
-    pub id: String,
-    #[http_query(description = "Data of the service")]
-    pub data: String,
-    #[http_query(name:"hourKey", description = "Hour Key")]
-    pub hour_key: i64,
-    #[http_query(name:"clientId", description = "Client Id")]
-    pub client_id: Option<String>,
-
-    #[http_query(name:"fromSecondWithinHour", description = "Second within hour")]
-    pub from_second_within_hour: i64,
-}
-#[derive(Deserialize, Serialize, MyHttpObjectStructure)]
-pub struct MetricsResponse {
-    pub metrics: Vec<MetricHttpModel>,
-}
-
-#[derive(Deserialize, Serialize, MyHttpObjectStructure)]
-pub struct MetricHttpModel {
-    pub id: i64,
-    pub started: i64,
-    pub duration: i64,
-    pub success: Option<String>,
-    pub error: Option<String>,
-    pub ip: Option<String>,
+    result
 }
 
 impl Into<MetricHttpModel> for MetricDto {
@@ -85,37 +43,9 @@ impl Into<MetricHttpModel> for MetricDto {
             duration: self.duration_micro,
             success: self.success,
             error: self.fail,
-            ip: if let Some(tags) = self.tags {
-                format!("{:?}", tags).into()
-            } else {
-                None
-            },
+            tags: map_tags(self.tags, self.client_id),
         }
     }
-}
-
-#[derive(Debug, MyHttpInput)]
-pub struct GetByProcessIdRequest {
-    #[http_query(name: "processId"; description = "Id of service")]
-    pub process_id: i64,
-    #[http_query(name: "hour_key"; description = "Hour key")]
-    pub hour_key: i64,
-}
-
-#[derive(Deserialize, Serialize, MyHttpObjectStructure)]
-pub struct MetricsByProcessResponse {
-    pub metrics: Vec<MetricByProcessModel>,
-}
-
-#[derive(Deserialize, Serialize, MyHttpObjectStructure)]
-pub struct MetricByProcessModel {
-    pub id: String,
-    pub data: String,
-    pub started: i64,
-    pub duration: i64,
-    pub success: Option<String>,
-    pub error: Option<String>,
-    pub ip: Option<String>,
 }
 
 impl Into<MetricByProcessModel> for MetricDto {
@@ -127,11 +57,7 @@ impl Into<MetricByProcessModel> for MetricDto {
             duration: self.duration_micro,
             success: self.success,
             error: self.fail,
-            ip: if let Some(tags) = self.tags {
-                format!("{:?}", tags).into()
-            } else {
-                None
-            },
+            tags: map_tags(self.tags, self.client_id),
         }
     }
 }

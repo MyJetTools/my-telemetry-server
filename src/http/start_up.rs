@@ -12,14 +12,22 @@ pub fn setup_server(app: &Arc<AppContext>, port: u16) -> MyHttpServer {
 
     let swagger_middleware = SwaggerMiddleware::new(
         controllers.clone(),
-        "Services Status".to_string(),
+        "MyTelemetry".to_string(),
         crate::app_ctx::APP_VERSION.to_string(),
     );
 
     http_server.add_middleware(Arc::new(swagger_middleware));
     http_server.add_middleware(controllers);
 
-    http_server.add_middleware(Arc::new(StaticFilesMiddleware::new(None, None)));
+    // The UI in `ui/` is a Dioxus wasm client compiled into `wwwroot/`. Serving
+    // `index.html` both as the index and as the not-found file is what makes its
+    // client-side routes (`/actions/...`, `/process/...`) survive a page reload:
+    // the server hands back the app and the router resolves the path in browser.
+    http_server.add_middleware(Arc::new(
+        StaticFilesMiddleware::new()
+            .add_index_file("index.html")
+            .set_not_found_file("index.html".to_string()),
+    ));
 
     http_server
 }

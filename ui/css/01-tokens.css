@@ -1,0 +1,43 @@
+body {
+    margin: 0;
+    padding: 0;
+    /*    font-family: 'Roboto', sans-serif !important;*/
+    overflow: hidden;
+    --label-color: gray;
+    --shadow: 0 0 5px lightgray;
+    --shadow-dark: 0 0 5px gray;
+    --border-color: lightgray;
+    --transparent-color: #fffffff5;
+    --vz-input-border-custom: lightgray !important;
+    --vz-input-bg-custom: white !important;
+    --accent-color: #40bb82;
+    --balance-loss-color: red;
+    --inactive-icon-color: rgb(202, 202, 202);
+    --text-color: black;
+    --vz-primary-border-subtle: #40bb82 !important;
+}
+
+
+#main {
+    overflow: hidden;
+    text-align: center;
+    --left-panel-data-width: 320px;
+    --terminal-left-offset: 60px;
+    --terminal-top-offset: 48px;
+    --total-width: 100vw;
+    --total-height: 100vh;
+    --trading-panel-width: 320px;
+    --terminal-width: calc(var(--total-width) - var(--terminal-left-offset));
+    --terminal-height: calc(var(--total-height) - var(--terminal-top-offset));
+    --left-panel-tab-active-color: #f2f2f2;
+
+    --left-panel-width: 250px;
+
+    --search-input-height: 30px;
+
+    --top-panel-height: 50px;
+
+    --bottom-panel-height: 25px;
+
+
+}

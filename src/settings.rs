@@ -21,6 +21,15 @@ pub struct SettingsModel {
 
     #[serde(rename = "SecondsToFlush")]
     pub seconds_to_flush: Option<i64>,
+
+    /// How long a metric stays in the in-memory window before it reaches disk. This is
+    /// what keeps the data file append-only: anything arriving inside this many seconds of
+    /// its own timestamp is absorbed by an in-memory sort. Anything later costs a rewrite
+    /// of the file tail.
+    ///
+    /// It is also exactly what a crash loses.
+    #[serde(rename = "WindowSeconds")]
+    pub window_seconds: Option<i64>,
 }
 
 impl SettingsReader {
@@ -70,5 +79,10 @@ impl SettingsReader {
     pub async fn get_seconds_to_flush(&self) -> i64 {
         let read_access = self.settings.read().await;
         read_access.seconds_to_flush.unwrap_or(3)
+    }
+
+    pub async fn get_window_seconds(&self) -> i64 {
+        let read_access = self.settings.read().await;
+        read_access.window_seconds.unwrap_or(60)
     }
 }

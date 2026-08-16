@@ -11,14 +11,15 @@ pub async fn get_available_hours_ago(app: &AppContext) -> Vec<AvailableFileGrpcM
 
     let mut result = BTreeMap::new();
     for metric_file in metric_files {
-        if let Some(hour_key) = metric_file.get_hour_key() {
-            if let Ok(hour) = hour_key.try_to_date_time() {
-                let diff = now - hour;
+        if let Ok(hour) = metric_file.get_hour_key().try_to_date_time() {
+            let diff = now - hour;
 
-                let hours = diff.get_full_hours();
+            let hours = diff.get_full_hours();
 
-                result.insert(hours, metric_file.get_file_size());
-            }
+            // Summed rather than assigned: an hour is normally one folder, but a leftover
+            // `.db` from before the storage swap can carry the same hour key, and
+            // overwriting would report whichever the scan yielded last.
+            *result.entry(hours).or_insert(0) += metric_file.get_file_size();
         }
     }
 

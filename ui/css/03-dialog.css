@@ -1,0 +1,51 @@
+#dialog-pad {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--total-width);
+    height: var(--total-height);
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+}
+
+
+
+.modal-dialog {
+    width: 90%;
+    background-color: white;
+    padding: 10px;
+    margin-top: 5px;
+    border-radius: 10px;
+    border: 1px solid gray;
+}
+
+.modal-dialog-narrow {
+    width: 500px;
+    background-color: white;
+    padding: 10px;
+    margin-top: 5px;
+    border-radius: 10px;
+    border: 1px solid gray;
+    margin: 100px auto;
+}
+
+.modal-header {
+    padding: 10px;
+}
+
+
+.table_top_label {
+    text-align: right;
+    margin-top: -30px;
+    margin-right: 10px;
+}
+
+.separator {
+    height: 17px;
+    width: 1px;
+    background: lightgray;
+    margin-left: 5px;
+    margin-right: 5px;
+
+}

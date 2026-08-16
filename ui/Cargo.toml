@@ -1,0 +1,43 @@
+[package]
+name = "my-telemetry-ui"
+version = "0.1.0"
+edition = "2021"
+
+# The telemetry UI, compiled to wasm and served by my-telemetry-server out of
+# `../wwwroot`. Client-side only: there are no `#[server]` functions - every call
+# goes to the `/ui/*` REST endpoints of the very server that served this page.
+
+[features]
+default = ["web"]
+web = ["dioxus/web"]
+
+[dependencies]
+# Kept on the 0.7 line on purpose: dioxus-utils requires `dioxus = "0.7"`, and the
+# `dx` CLI that builds this crate has to match the library's minor version.
+dioxus = { version = "0.7", features = ["router"] }
+dioxus-utils = { tag = "0.7.0", git = "https://github.com/MyJetTools/dioxus-utils.git", features = [
+    "web",
+] }
+
+# Wire models shared verbatim with the server. Pulled in WITHOUT the "server"
+# feature - the client only needs the schema plus the FlUrl request builder.
+rest-api-shared = { path = "../rest-api-shared" }
+
+# Compiles to the browser fetch API under wasm and resolves relative "/ui/..." URLs.
+flurl = { tag = "0.7.0", git = "https://github.com/MyJetTools/fl-url.git" }
+
+rust-extensions = { tag = "0.1.5", git = "https://github.com/MyJetTools/rust-extensions.git", features = [
+    "base64",
+] }
+
+serde = { version = "*", features = ["derive"] }
+serde_json = { version = "*" }
+
+web-sys = { version = "*", features = ["Storage", "Window"] }
+js-sys = { version = "*" }
+
+[build-dependencies]
+ci-utils = { git = "https://github.com/MyJetTools/ci-utils.git", tag = "0.1.4" }
+
+[profile.release]
+strip = "debuginfo"

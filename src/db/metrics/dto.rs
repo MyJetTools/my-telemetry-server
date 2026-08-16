@@ -1,24 +1,20 @@
-use my_sqlite::macros::*;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 use serde_derive::{Deserialize, Serialize};
+use turso::Value;
 
-#[derive(TableSchema, InsertDbEntity, SelectDbEntity, Debug)]
+/// The in-memory model of one metric, used everywhere from ingest through the caches to
+/// the reader API.
+///
+/// It is no longer a database row: metrics live in [`crate::storage_by_hour`], where the
+/// on-disk form is `writer::TelemetryGrpcEvent`. The DDL, column list and row mapping that
+/// used to sit here went with the `metrics` table.
+#[derive(Debug, Clone)]
 pub struct MetricDto {
-    #[generate_where_model("WhereByProcessId")]
-    #[generate_where_model(name:"GcWhereModel", operator = "<")]
-    #[db_index(id:0, index_name:"process_id_idx", is_unique:false, order:"ASC")]
+    /// `ProcessId` - a correlation id, not unique.
     pub id: i64,
-
-    #[db_index(id:0, index_name:"started_idx", is_unique:false, order:"ASC")]
-    #[generate_where_model(name:"FromStartedWhereModel", operator = ">")]
-    #[generate_where_model(name:"FromStartedAndServiceNameWhereModel", operator = ">")]
-    #[primary_key(2)]
     pub started: i64,
     pub duration_micro: i64,
-    #[primary_key(0)]
-    #[generate_where_model(name:"FromStartedAndServiceNameWhereModel", as_str)]
     pub name: String,
-    #[primary_key(1)]
     pub data: String,
     pub success: Option<String>,
     pub fail: Option<String>,
@@ -78,22 +74,27 @@ impl MetricDto {
     }
 }
 
-#[derive(Serialize, Deserialize, DbJsonModel, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EventTagDto {
     pub key: String,
     pub value: String,
 }
 
-#[derive(WhereDbModel)]
-pub struct WhereByServiceName<'s> {
-    pub name: &'s str,
-    pub data: &'s str,
-    #[ignore_if_none]
-    pub client_id: Option<&'s str>,
-    #[operator(">=")]
-    #[ignore_if_none]
-    pub started: Option<i64>,
+impl EventTagDto {
+    /// Still used by `permanent_metrics`, which remains a turso table with a `tags json`
+    /// column.
+    pub fn from_db_json(src: Option<String>) -> Option<Vec<Self>> {
+        let src = src?;
+        serde_json::from_str(src.as_str()).ok()
+    }
 
-    #[limit]
-    pub limit: usize,
+    pub fn to_db_json(tags: Option<&[Self]>) -> Value {
+        match tags {
+            Some(tags) => match serde_json::to_string(tags) {
+                Ok(json) => Value::Text(json),
+                Err(_) => Value::Null,
+            },
+            None => Value::Null,
+        }
+    }
 }

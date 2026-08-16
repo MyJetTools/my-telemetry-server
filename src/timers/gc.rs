@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use rust_extensions::{
     date_time::{DateTimeAsMicroseconds, HourKey, IntervalKey},
-    MyTimerTick,
+    MyTimerTick, RepeatTimerIteration,
 };
 
 use crate::app_ctx::AppContext;
@@ -19,7 +19,7 @@ impl GcTimer {
 
 #[async_trait::async_trait]
 impl MyTimerTick for GcTimer {
-    async fn tick(&self) {
+    async fn tick(&self) -> RepeatTimerIteration {
         let duration = self.app.settings_reader.get_hours_to_gc().await;
 
         let hour_key: IntervalKey<HourKey> = DateTimeAsMicroseconds::now().sub(duration).into();
@@ -41,5 +41,7 @@ impl MyTimerTick for GcTimer {
         cache_access
             .event_amount_by_hours
             .gc_old_data(cache_gc_hour_key);
+
+        RepeatTimerIteration::WithInterval
     }
 }

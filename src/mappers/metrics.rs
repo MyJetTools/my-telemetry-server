@@ -22,6 +22,48 @@ impl Into<MetricDto> for TelemetryGrpcEvent {
     }
 }
 
+/// The inverse of the mapping above - used to put a metric back on disk, where
+/// `TelemetryGrpcEvent` doubles as the storage format.
+///
+/// `client_id` has no field of its own on the wire, so it goes back where it came from:
+/// a `client_id` tag. `metric_tags::get` lifts it out again on the way in, so the
+/// round-trip is lossless.
+impl Into<TelemetryGrpcEvent> for MetricDto {
+    fn into(mut self) -> TelemetryGrpcEvent {
+        let mut tags = match self.tags.take() {
+            Some(dto_tags) => {
+                let mut result = Vec::with_capacity(dto_tags.len() + 1);
+                for dto_tag in dto_tags {
+                    result.push(EventGrpcTag {
+                        key: dto_tag.key,
+                        value: dto_tag.value,
+                    });
+                }
+                result
+            }
+            None => Vec::with_capacity(1),
+        };
+
+        if let Some(client_id) = self.client_id.take() {
+            tags.push(EventGrpcTag {
+                key: super::CLIENT_ID_TAG.to_string(),
+                value: client_id,
+            });
+        }
+
+        TelemetryGrpcEvent {
+            process_id: self.id,
+            started_at: self.started,
+            finished_at: self.started + self.duration_micro,
+            service_name: self.name,
+            event_data: self.data,
+            success: self.success,
+            fail: self.fail,
+            tags,
+        }
+    }
+}
+
 impl From<AppDataHourStatistics> for AppActionGrpcModel {
     fn from(value: AppDataHourStatistics) -> Self {
         let total = value.success_amount + value.errors_amount;

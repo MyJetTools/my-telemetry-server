@@ -1,9 +1,10 @@
 use crate::{
     caches::{EventAmountsByHour, StatisticsByAppAndData},
-    db::{HourAppDataStatisticsRepo, HourStatisticsRepo, MetricsRepo, PermanentMetricsRepo},
+    db::{HourAppDataStatisticsRepo, HourStatisticsRepo, PermanentMetricsRepo},
     permanent_users::PermanentUsersList,
     process_id_user_id_links::ProcessIdUserIdLinks,
     settings::SettingsReader,
+    storage_by_hour::MetricsStorage,
     to_write_queue::ToWriteQueue,
 };
 use rust_extensions::AppStates;
@@ -36,7 +37,7 @@ impl StatisticsCache {
 pub struct AppContext {
     pub app_states: Arc<AppStates>,
     pub process_id: String,
-    pub repo: MetricsRepo,
+    pub repo: MetricsStorage,
 
     pub permanent_metrics: PermanentMetricsRepo,
 
@@ -49,9 +50,10 @@ pub struct AppContext {
 
 impl AppContext {
     pub async fn new(settings_reader: Arc<SettingsReader>) -> AppContext {
-        let repo_file_name = settings_reader
-            .get_db_file_prefix(METRICS_FILE_PREFIX)
-            .await;
+        // Metrics no longer live in files named by a prefix - each hour is a folder under
+        // the db path, named by its hour key.
+        let metrics_path = settings_reader.get_db_path().await;
+
         let statistic_db_file_name = settings_reader
             .get_db_file_prefix("h_app_statistics.db")
             .await;
@@ -67,7 +69,7 @@ impl AppContext {
             to_write_queue: ToWriteQueue::new(),
             app_states: Arc::new(AppStates::create_initialized()),
             process_id: uuid::Uuid::new_v4().to_string(),
-            repo: MetricsRepo::new(repo_file_name).await,
+            repo: MetricsStorage::new(metrics_path),
             hour_app_data_statistics_repo: HourAppDataStatisticsRepo::new(statistic_db_file_name)
                 .await,
             settings_reader,

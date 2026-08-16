@@ -1,47 +1,80 @@
 use crate::{
     app_ctx::{AppContext, METRICS_FILE_PREFIX},
-    metric_file::MetricFile,
+    metric_file::*,
 };
 
+/// Every hour present on disk.
+///
+/// An hour is a folder named by its key - `2026010512` - so the scan is one level deep and
+/// the size of an hour is the sum of what the folder holds. Loose `metrics-*.db` files left
+/// over from before the storage swap are picked up too, so GC eventually clears them.
 pub async fn get_metrics_files(app: &AppContext) -> Vec<MetricFile> {
     let path_to_scan = app.settings_reader.get_db_path().await;
 
-    let mut dir_entry = tokio::fs::read_dir(path_to_scan).await.unwrap();
+    let mut dir_entry = match tokio::fs::read_dir(path_to_scan).await {
+        Ok(result) => result,
+        Err(err) => {
+            println!("Failed to scan metrics folder: {:?}", err);
+            return vec![];
+        }
+    };
 
     let mut result = Vec::new();
 
-    while let Some(entry) = dir_entry.next_entry().await.unwrap() {
-        if !entry.path().is_file() {
+    while let Ok(Some(entry)) = dir_entry.next_entry().await {
+        let path = entry.path();
+
+        let Some(name) = path.file_name().and_then(|itm| itm.to_str()) else {
+            continue;
+        };
+
+        let Some(full_path) = path.as_os_str().to_str() else {
+            continue;
+        };
+
+        if path.is_dir() {
+            let Some(hour_key) = parse_hour_folder_name(name) else {
+                continue;
+            };
+
+            result.push(MetricFile::new(
+                full_path.to_string(),
+                hour_key,
+                folder_size(&path).await,
+                true,
+            ));
+
             continue;
         }
 
-        let path = entry.path();
+        let Some(hour_key) = parse_legacy_file_name(name, METRICS_FILE_PREFIX) else {
+            continue;
+        };
 
-        if let Some(file_name) = path.file_name() {
-            if let Some(file_name) = file_name.to_str() {
-                if file_name.starts_with(METRICS_FILE_PREFIX) {
-                    let file_metadata = entry.metadata().await.unwrap();
-                    result.push(MetricFile::new(
-                        path.as_os_str().to_str().unwrap().to_string(),
-                        file_name.to_string(),
-                        file_metadata.len(),
-                    ));
-                }
+        let size = entry.metadata().await.map(|itm| itm.len()).unwrap_or(0);
 
-                /*
-                let hour_key = get_hour_key(file_name);
+        result.push(MetricFile::new(
+            full_path.to_string(),
+            hour_key,
+            size,
+            false,
+        ));
+    }
 
-                if let Some(hour_key) = hour_key {
-                    if let Ok(hour) = hour_key.try_to_date_time() {
-                        let diff = now - hour;
+    result
+}
 
-                        let hours = diff.get_full_hours();
+async fn folder_size(path: &std::path::Path) -> u64 {
+    let Ok(mut dir_entry) = tokio::fs::read_dir(path).await else {
+        return 0;
+    };
 
-                        let file_metadata = entry.metadata().await.unwrap();
-                        result.insert(hours, file_metadata.len());
-                    }
-                }
-                 */
+    let mut result = 0;
+
+    while let Ok(Some(entry)) = dir_entry.next_entry().await {
+        if let Ok(metadata) = entry.metadata().await {
+            if metadata.is_file() {
+                result += metadata.len();
             }
         }
     }

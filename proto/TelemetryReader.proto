@@ -85,6 +85,8 @@ message TechMetricsGrpcModel{
     uint64 AppDataSize = 8;
     uint64 AppDataCapacity = 9;
     uint64 UserIdLinksCapacity = 10;
+    // Metrics accepted but still in the storage's in-memory window - what a crash costs.
+    uint64 StorageWindowSize = 11;
 }
 
 message AddPermanentUserGrpcRequest{

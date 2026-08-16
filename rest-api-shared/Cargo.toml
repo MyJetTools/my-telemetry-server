@@ -1,0 +1,16 @@
+[package]
+name = "rest-api-shared"
+version = "0.1.0"
+edition = "2021"
+
+# Wire models shared verbatim by the server (src/http) and the wasm UI (ui/).
+# Deliberately depends on my-http-utils only - never on my-http-server - so the
+# crate compiles to wasm32.
+
+[features]
+server = ["my-http-utils/server"]
+
+[dependencies]
+my-http-utils = { tag = "0.1.0", git = "https://github.com/MyJetTools/my-http-utils.git" }
+serde = { version = "*", features = ["derive"] }
+serde_json = { version = "*" }

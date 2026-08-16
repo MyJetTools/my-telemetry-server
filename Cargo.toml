@@ -6,31 +6,39 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-my-http-server = { tag = "0.7.1", git = "https://github.com/MyJetTools/my-http-server.git", features = [
+my-http-server = { tag = "0.9.0", git = "https://github.com/MyJetTools/my-http-server.git", features = [
     "static-files",
     "macros",
+    "controllers",
 ] }
 
-rust-extensions = { tag = "0.1.4", git = "https://github.com/MyJetTools/rust-extensions.git", features = [
+my-http-utils = { tag = "0.1.0", git = "https://github.com/MyJetTools/my-http-utils.git", features = [
+    "server",
+] }
+
+# Wire models shared verbatim with the wasm UI in `ui/`.
+rest-api-shared = { path = "./rest-api-shared", features = ["server"] }
+
+rust-extensions = { tag = "0.1.5", git = "https://github.com/MyJetTools/rust-extensions.git", features = [
     "base64",
 ] }
-my-logger = { tag = "1.1.0", git = "https://github.com/MyJetTools/my-logger.git" }
+my-logger = { tag = "1.3.0", git = "https://github.com/MyJetTools/my-logger.git" }
 
 
-my-sqlite = { tag = "0.1.1", git = "https://github.com/MyJetTools/my-sqlite.git", features = [
-    "macros",
-] }
+# SQLite rewritten in Rust - same SQL dialect and same file format, no libsqlite3
+# and no FFI. Same version my-logger-server runs in production.
+turso = { version = "0.6", default-features = false }
 
-my-settings-reader = { tag = "0.3.1", git = "https://github.com/MyJetTools/my-settings-reader.git", features = [
+my-settings-reader = { tag = "0.5.0", git = "https://github.com/MyJetTools/my-settings-reader.git", features = [
     "background-reader",
 ] }
 
-my-grpc-extensions = { tag = "0.6.2", git = "https://github.com/MyJetTools/my-grpc-extensions.git", features = [
+my-grpc-extensions = { tag = "0.7.0", git = "https://github.com/MyJetTools/my-grpc-extensions.git", features = [
     "grpc-server",
 ] }
 
 
-flurl = { tag = "0.5.3", git = "https://github.com/MyJetTools/fl-url.git" }
+flurl = { tag = "0.7.0", git = "https://github.com/MyJetTools/fl-url.git" }
 
 tokio = { version = "*", features = ["full"] }
 tokio-util = "*"
@@ -43,7 +51,8 @@ serde_json = "*"
 async-trait = "*"
 uuid = { version = "*", features = ["serde", "v4"] }
 
-tonic = { version = "*", features = ["tls", "tls-roots", "prost"] }
+tonic = { version = "*" }
+tonic-prost = "*"
 anyhow = "*"
 prost = "*"
 prost-types = "*"
@@ -60,4 +69,4 @@ ahash = "*"
 
 
 [build-dependencies]
-tonic-build = { version = "*", features = ["prost"] }
+ci-utils = { git = "https://github.com/MyJetTools/ci-utils.git", tag = "0.1.4" }

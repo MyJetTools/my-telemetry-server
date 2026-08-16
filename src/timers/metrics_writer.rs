@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use rust_extensions::{date_time::DateTimeAsMicroseconds, MyTimerTick};
+use rust_extensions::{date_time::DateTimeAsMicroseconds, MyTimerTick, RepeatTimerIteration};
 
 use crate::{
     app_ctx::{AppContext, StatisticsCache},
     db::{MetricDto, PermanentMetricDto},
+    storage_by_hour::group_by_hour,
     to_write_queue::MetricsChunkByProcessId,
 };
 
@@ -19,9 +20,10 @@ impl MetricsWriter {
 }
 #[async_trait::async_trait]
 impl MyTimerTick for MetricsWriter {
-    async fn tick(&self) {
+    async fn tick(&self) -> RepeatTimerIteration {
         let started = DateTimeAsMicroseconds::now();
         let seconds_to_flush = self.app.settings_reader.get_seconds_to_flush().await;
+        let window_seconds = self.app.settings_reader.get_window_seconds().await;
 
         let mut do_gc = true;
 
@@ -31,6 +33,13 @@ impl MyTimerTick for MetricsWriter {
             .get_events_to_write(1000, seconds_to_flush)
             .await
         {
+            // `get_events_to_write` answers `Some(vec![])` when nothing has aged out yet,
+            // so without this the loop spins on the queue lock until the 20 second guard
+            // below fires - every tick.
+            if chunks.is_empty() {
+                break;
+            }
+
             let mut events_to_write = Vec::with_capacity(1000);
 
             {
@@ -40,38 +49,48 @@ impl MyTimerTick for MetricsWriter {
                 }
             }
 
-            let items = self.app.repo.insert(events_to_write).await;
+            // An hour is its own pair of files, so the batch is split before anything is
+            // handed over. Statistics are updated off the same grouping, by reference -
+            // the metrics themselves move on to the storage untouched.
+            let by_hour = group_by_hour(events_to_write);
 
             let mut permanent_items: Vec<PermanentMetricDto> = Vec::new();
+            let mut to_push = Vec::with_capacity(by_hour.len());
 
             {
                 let mut cache_write_access = self.app.cache.lock().await;
 
-                for (interval_key, grouped) in items {
+                for (hour_key, grouped) in by_hour {
                     cache_write_access
                         .statistics_by_app_and_data
-                        .update(interval_key, &grouped);
+                        .update(hour_key, &grouped);
 
-                    for metric_dto in grouped {
+                    for metric_dto in grouped.iter() {
                         cache_write_access
                             .event_amount_by_hours
-                            .inc(interval_key, &metric_dto);
+                            .inc(hour_key, metric_dto);
 
                         if let Some(client_id) = &metric_dto.client_id {
                             if cache_write_access
                                 .permanent_users_list
                                 .is_permanent(client_id)
                             {
-                                permanent_items.push(metric_dto.into());
+                                permanent_items.push(metric_dto.clone().into());
                             }
                         }
                     }
+
+                    to_push.push((hour_key, grouped));
                 }
 
                 if do_gc {
                     cache_write_access.process_id_user_id_links.gc();
                     do_gc = false;
                 }
+            }
+
+            for (hour_key, items) in to_push {
+                self.app.repo.push(hour_key, items).await;
             }
 
             if permanent_items.len() > 0 {
@@ -82,6 +101,15 @@ impl MyTimerTick for MetricsWriter {
                 break;
             }
         }
+
+        // Everything that has aged past the window goes to disk. This is the only place
+        // metrics reach the filesystem, and it is what keeps the data files append-only.
+        let mut flush_before = DateTimeAsMicroseconds::now();
+        flush_before.add_seconds(-window_seconds);
+
+        self.app.repo.flush(flush_before.unix_microseconds).await;
+
+        RepeatTimerIteration::WithInterval
     }
 }
 

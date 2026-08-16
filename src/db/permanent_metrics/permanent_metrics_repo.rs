@@ -1,27 +1,33 @@
-use my_sqlite::{SqlLiteConnection, SqlLiteConnectionBuilder};
+use turso::Database;
 
-use super::PermanentMetricDto;
+use crate::db::turso_ext::*;
 
-const TABLE_NAME: &str = "permanent_metrics";
+use super::dto::*;
+
 pub struct PermanentMetricsRepo {
-    connection: SqlLiteConnection,
+    db: Database,
 }
 
 impl PermanentMetricsRepo {
     pub async fn new(file_name: String) -> Self {
-        let connection = SqlLiteConnectionBuilder::new(file_name.to_string())
-            .create_table_if_no_exists::<PermanentMetricDto>(TABLE_NAME)
-            .build()
-            .await
-            .unwrap();
-
-        Self { connection }
+        Self {
+            db: open_db(file_name.as_str(), &DDL).await,
+        }
     }
 
     pub async fn insert(&self, dto: &[PermanentMetricDto]) {
-        self.connection
-            .bulk_insert_or_update(&dto, TABLE_NAME)
-            .await
-            .unwrap();
+        if dto.is_empty() {
+            return;
+        }
+
+        let connection = self.db.connect().unwrap();
+
+        execute_batch(
+            &connection,
+            INSERT_SQL,
+            dto.iter().map(|itm| itm.to_insert_params()),
+        )
+        .await
+        .unwrap();
     }
 }
