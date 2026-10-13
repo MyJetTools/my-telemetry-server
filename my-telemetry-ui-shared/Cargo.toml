@@ -1,0 +1,16 @@
+[package]
+name = "my-telemetry-ui-shared"
+version = "0.1.0"
+edition = "2021"
+
+# Wire models shared verbatim by the UI server (my-telemetry-ui, with the "server"
+# feature) and the wasm client (my-telemetry-ui-client, without it). Deliberately
+# depends on my-http-utils only - never on my-http-server - so it compiles to wasm32.
+
+[features]
+server = ["my-http-utils/server"]
+
+[dependencies]
+my-http-utils = { tag = "0.1.0", git = "https://github.com/MyJetTools/my-http-utils.git" }
+serde = { version = "*", features = ["derive"] }
+serde_json = { version = "*" }

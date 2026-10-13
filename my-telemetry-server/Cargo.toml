@@ -1,0 +1,77 @@
+[package]
+name = "my-telemetry-server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+my-http-server = { tag = "0.9.0", git = "https://github.com/MyJetTools/my-http-server.git", features = [
+    "macros",
+    "controllers",
+] }
+
+my-http-utils = { tag = "0.1.0", git = "https://github.com/MyJetTools/my-http-utils.git", features = [
+    "server",
+] }
+
+rust-extensions = { tag = "0.1.5", git = "https://github.com/MyJetTools/rust-extensions.git", features = [
+    "base64",
+    "with-tokio",
+] }
+my-logger = { tag = "1.3.0", git = "https://github.com/MyJetTools/my-logger.git" }
+
+
+# SQLite rewritten in Rust - same SQL dialect and same file format, no libsqlite3
+# and no FFI. Same version my-logger-server runs in production.
+turso = { version = "0.6", default-features = false }
+
+my-settings-reader = { tag = "0.5.0", git = "https://github.com/MyJetTools/my-settings-reader.git", features = [
+    "background-reader",
+] }
+
+my-grpc-extensions = { tag = "0.7.0", git = "https://github.com/MyJetTools/my-grpc-extensions.git", features = [
+    "grpc-server",
+] }
+
+
+flurl = { tag = "0.7.0", git = "https://github.com/MyJetTools/fl-url.git" }
+
+tokio = { version = "*", features = ["full"] }
+tokio-util = "*"
+
+serde = "*"
+serde_derive = "*"
+serde_yaml = "*"
+serde_json = "*"
+
+async-trait = "*"
+uuid = { version = "*", features = ["serde", "v4"] }
+
+tonic = { version = "*" }
+tonic-prost = "*"
+anyhow = "*"
+prost = "*"
+prost-types = "*"
+futures-core = "*"
+
+ring = "*"
+
+tikv-jemalloc-ctl = { version = "*", features = ['use_std'] }
+tikv-jemallocator = { version = "*", features = [
+    "unprefixed_malloc_on_supported_platforms",
+] }
+
+ahash = "*"
+parking_lot = "*"
+
+# The blocks of the data files: the records of a second, compressed together. Same
+# version my-logger-server writes its hours with.
+zstd = "0.13"
+
+# The hours go to S3 once their time on the local disk is over - when `S3ConnString` is set
+my-s3 = { tag = "0.1.0", git = "https://github.com/MyJetTools/my-s3.git" }
+
+
+[build-dependencies]
+ci-utils = { git = "https://github.com/MyJetTools/ci-utils.git", tag = "0.1.3" }

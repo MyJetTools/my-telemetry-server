@@ -1,0 +1,155 @@
+
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+package reader;
+
+
+
+message ServiceGrpcModel {
+    string Id = 1;
+    int64 Avg = 2;
+    int64 Amount = 3;
+}
+
+// ProductScope, here and in the requests below: the product scope to read. Its writers name
+// it - `product` of their connection string. Not given or empty - the default scope, where
+// the metrics of the writers which name none go.
+message GetByAppRequest{
+    string AppId = 1;
+    int64 HourKey = 2;
+    optional string ProductScope = 3;
+}
+
+message TagGrpcModel{
+    string Key = 1;
+    string Value =2;
+}
+
+message AppActionGrpcModel {
+    string Data  = 1;
+    int64 Min = 2;
+    int64 Avg = 3;
+    int64 Max = 4;
+    int64 Success = 5;
+    int64 Error = 6;
+    int64 Total = 7;
+
+}
+
+message GetAppEventsByActionRequest{
+    string AppId = 1;
+    string Data = 2;
+    int64 HourKey = 3;
+    string ClientId = 4;
+    int64 FromSecWithinHour = 5;
+    optional string ProductScope = 6;
+}
+
+message AppDataGrpcModel {
+    int64 ProcessId  = 1;
+    int64 Started  = 2;
+    int64 Duration  = 3;
+    optional string Success  = 4;
+    optional string Fail  = 5;
+    repeated TagGrpcModel Tags  = 6;
+}
+
+// A process goes through the services of more than one product scope: its events are
+// looked for in all of them.
+message GetByProcessIdRequest{
+    int64 ProcessId = 1;
+    int64 HourKey = 2;
+}
+
+message MetricEventGrpcModel{
+    int64 Started = 1;
+    int64 Duration = 2;
+    string Name = 3;
+    string Data = 4;
+    optional string Success = 5;
+    optional string Fail = 6;
+    repeated TagGrpcModel Tags  = 7;
+}
+
+message GetAppsRequest{
+    int64 HourKey = 1;
+    optional string ProductScope = 2;
+}
+
+// Reads as google.protobuf.Empty did: a reader which names no scope gets the default one
+message GetAvailableHoursRequest{
+    optional string ProductScope = 1;
+}
+
+// The default scope first, then the other ones there are metrics of
+message GetProductScopesResponse{
+    string DefaultScope = 1;
+    repeated string Scopes = 2;
+}
+
+
+message AvailableFileGrpcModel{
+    int64 HourAgo = 1;
+    uint64 FileSize = 2;
+    // The hour itself, YYYYMMDDHH. Every other request is keyed on it, so a reader takes it
+    // from here rather than deriving it from HourAgo with a clock of its own.
+    int64 HourKey = 3;
+}
+
+message TechMetricsGrpcModel{
+    uint64 AppDataHoursSize = 1;
+    uint64 AppDataToPersistHoursSize = 2;
+    uint64 QueueSize = 3;
+    uint64 QueueCapacity = 4;
+    uint64 QueueByProcessSize = 5;
+    uint64 QueueByProcessCapacity = 6;
+    uint64 UserIdLinksSize = 7;
+    uint64 AppDataSize = 8;
+    uint64 AppDataCapacity = 9;
+    uint64 UserIdLinksCapacity = 10;
+    // Metrics accepted but still in the storage's in-memory window - what a crash costs.
+    uint64 StorageWindowSize = 11;
+}
+
+message AddPermanentUserGrpcRequest{
+    string UserId = 1;
+}
+
+message DeletePermanentUserGrpcRequest{
+    string UserId = 1;
+}
+
+
+enum PermanentUserStatusGrpcModel{
+    InProcess = 0;
+    Added = 1;
+    Deleting = 2;
+}
+
+message PermanentUserGrpcModel{
+    string UserId = 1;
+    int64 Added = 2;
+    PermanentUserStatusGrpcModel Status = 3;
+}
+
+
+service TelemetryReader {
+
+    rpc GetProductScopes(google.protobuf.Empty) returns (GetProductScopesResponse);
+    rpc GetAvailableHoursAgo(GetAvailableHoursRequest) returns (stream AvailableFileGrpcModel);
+    rpc GetApps(GetAppsRequest) returns (stream ServiceGrpcModel);
+    rpc GetAppActions(GetByAppRequest) returns (stream AppActionGrpcModel);
+    rpc GetAppEventsByAction(GetAppEventsByActionRequest) returns (stream AppDataGrpcModel);
+    rpc GetByProcessId(GetByProcessIdRequest) returns (stream MetricEventGrpcModel);
+
+    rpc GetTechMetrics(google.protobuf.Empty) returns (TechMetricsGrpcModel);
+
+
+    rpc AddPermanentUser(AddPermanentUserGrpcRequest) returns (google.protobuf.Empty);
+    rpc DeletePermanentUser(DeletePermanentUserGrpcRequest) returns (google.protobuf.Empty);
+    rpc GetPermanentUsers(google.protobuf.Empty) returns (stream PermanentUserGrpcModel);
+
+
+    rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+ }
